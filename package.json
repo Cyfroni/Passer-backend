@@ -1,0 +1,28 @@
+{
+  "name": "sharenotes",
+  "version": "1.0.0",
+  "description": "Decentralized system for sharing knowledge between students",
+  "main": "index.js",
+  "dependencies": {
+    "@nodeutils/defaults-deep": "^1.1.0",
+    "libp2p": "^0.26.2",
+    "libp2p-bootstrap": "^0.9.7",
+    "libp2p-kad-dht": "^0.14.15",
+    "libp2p-mplex": "^0.8.0",
+    "libp2p-secio": "^0.11.1",
+    "libp2p-spdy": "^0.13.3",
+    "libp2p-tcp": "^0.13.2",
+    "log": "^6.0.0",
+    "multiaddr": "^7.2.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@gitlab.au.dk:au647933/sharenotes.git"
+  },
+  "author": "",
+  "license": "ISC"
+}
