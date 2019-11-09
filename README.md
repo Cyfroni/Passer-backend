@@ -1,6 +1,18 @@
-# ShareNotes
+# Passer
 
 ### Usage:
+
+## Docker:
+
+Build:
+
+`start.sh`
+
+Enter docker:
+
+`enter.sh`
+
+## Inside docker
 
 Start first node:
 
@@ -16,7 +28,6 @@ peer started. listening on addresses:
 /p2p-circuit/ip4/127.0.0.1/tcp/37153/ipfs/QmQSXri8RFXmqnMocwni33fdy1fHYTnwKs5eXSeksJ24Z6
 /p2p-circuit/ip4/192.168.1.125/tcp/37153/ipfs/QmQSXri8RFXmqnMocwni33fdy1fHYTnwKs5eXSeksJ24Z6
 ```
-
 
 Now every other node connects to the first node:
 
