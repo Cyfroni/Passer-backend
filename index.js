@@ -4,10 +4,12 @@ const PeerId = require('peer-id')
 const log = require("log");
 const {Node} = require('./node')
 
-const readline = require('readline').createInterface({
+const rl = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 })  
+
+
 
 function createPeer(callback) {
   // create a new PeerInfo object with a newly-generated PeerId
@@ -54,32 +56,16 @@ function handleStart(peer) {
       console.log('peer started. listening on addresses:')
       addresses.forEach(addr => console.log(addr.toString()))
 
-      if (process.argv[3]){
-	      console.log('Trying to discover peers')
-        discoverBootstrapPeer(process.argv[3], peer)
-      }
-}
+      rl.setPrompt('command> ');
+      rl.prompt();
 
+      rl.on('line', function(line) {
+        processCommand(line, peer);
+        rl.prompt();
+      }).on('close',function(){
+        process.exit(0);
+    });
 
-async function discoverBootstrapPeer(candidate, peer){
-      const ma = multiaddr(candidate)
-
-      const peerId = PeerId.createFromB58String(ma.getPeerId())
-
-      try {
-        const peerInfo = new PeerInfo(peerId)
-        peerInfo.multiaddrs.add(ma)
-	      peer.dial(peerInfo, (err, conn) => {
-		    if (err) { throw err }
-		      peer.peerRouting.findPeer(peerId, (err, peer2) => {
-      			  if (err) { throw err }
-      			  console.log('Found it, multiaddrs are:')
-      			  peer2.multiaddrs.forEach((ma) => console.log(ma.toString()))
-    		})
-	})
-      } catch (err) {
-        log.error('Invalid bootstrap peer id', err)
-      }
 }
 
 // main entry point
@@ -96,3 +82,25 @@ createPeer((err, peer) => {
     handleStart(peer)
   })
 })
+
+
+function processCommand(command, peer){
+  console.log('Command was: ' + command)
+  args = command.split(' ')
+  console.log('Split: ' + args[0] + args[1])
+
+  if (args[0] == 'dht'){
+    if (args[1] == 'put'){
+      const key = Buffer.from(args[2])
+	    const value = Buffer.from(args[3])
+	    peer.dht.put(key, value)
+	    console.log(`DHT PUT ${key}:${value}`)
+    }
+    if (args[1] == 'get'){
+      const key = Buffer.from(args[2])
+	    peer.dht.get(key, (err, buffer) => {
+        console.log(`DHT GET ${key}:${buffer}`)
+      })
+    } 
+  }
+}
