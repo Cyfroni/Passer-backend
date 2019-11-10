@@ -2,6 +2,9 @@ const multiaddr = require("multiaddr");
 const PeerInfo = require("peer-info");
 const PeerId = require("peer-id");
 const log = require("log");
+const fs = require("fs");
+const pull = require("pull-stream");
+const toPull = require("stream-to-pull-stream");
 const { Node } = require("./models/node");
 
 const rl = require("readline").createInterface({
@@ -38,6 +41,15 @@ function createPeer(callback) {
       peer.dht.get(key, (err, buffer) => {
         console.log("DHT is " + buffer);
       });
+    });
+
+    peer.handle("/file/1.0.0", (protocolName, connection) => {
+      pull(
+        connection,
+        pull.collect((err, data) => {
+          console.log("received:", data.toString());
+        })
+      );
     });
 
     callback(null, peer);
@@ -98,5 +110,21 @@ function processCommand(command, peer) {
         console.log(`DHT GET ${key}:${buffer}`);
       });
     }
+  }
+  if (args[0] == "store") {
+    console.log(fs.readFileSync(args[1], "utf8"));
+    peer.peerBook.getAllArray().forEach((p, i) => {
+      console.log(p);
+
+      peer.dialProtocol(p, "/file/1.0.0", (err, connection) => {
+        pull(toPull.duplex(fs.createReadStream(args[1])), connection);
+      });
+
+      // peer.dialProtocol(p, peer.stats.protocols()[0], (err, conn) => {
+      //   console.log(conn.addStream(fs.createReadStream("start.sh")));
+      // });
+    });
+  }
+  if (args[0] == "test") {
   }
 }

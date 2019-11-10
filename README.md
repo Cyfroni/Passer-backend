@@ -1,7 +1,5 @@
 # Passer
 
-### Usage:
-
 ## Docker:
 
 Build:
