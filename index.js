@@ -1,11 +1,14 @@
 const multiaddr = require("multiaddr");
 const PeerInfo = require("peer-info");
-const PeerId = require("peer-id");
-const log = require("log");
 const fs = require("fs");
 const pull = require("pull-stream");
-const toPull = require("stream-to-pull-stream");
 const { Node } = require("./models/node");
+const crypto = require("crypto");
+const _ = require("underscore");
+const toPull = require("stream-to-pull-stream");
+const Readable = require("stream").Readable;
+const glob = require("glob");
+const Cid = require("cids");
 
 const rl = require("readline").createInterface({
   input: process.stdin,
@@ -47,7 +50,20 @@ function createPeer(callback) {
       pull(
         connection,
         pull.collect((err, data) => {
-          console.log("received:", data.toString());
+          console.log("received:", data);
+          var num = data[0];
+          var hash = data[1].toString();
+          var shard = data[2].toString();
+          var id = peer.peerInfo.id.toB58String();
+          fs.writeFile(`shards/${id}_${hash}_${num}`, shard, function(err) {
+            if (err) throw err;
+            console.log("File is created successfully.");
+            // peer.contentRouting.provide(new Cid(1, "raw", data[1]), err => {
+            //   if (err) throw err;
+
+            //   console.log("Node %s is providing %s", id, hash);
+            // });
+          });
         })
       );
     });
@@ -92,6 +108,26 @@ createPeer((err, peer) => {
   });
 });
 
+function splitString(str, n) {
+  var chunks = [];
+  var quantity = Math.ceil(str.length / n);
+  for (var i = 0, charsLength = str.length; i < charsLength; i += quantity) {
+    chunks.push(str.substring(i, i + quantity));
+  }
+  return chunks;
+}
+
+function addMetaData(peer, hash) {
+  var key = Buffer.from("0");
+  console.log(key);
+  peer.dht.get(key, (err, buffer) => {
+    console.log(buffer);
+    var metaData = buffer ? JSON.parse(buffer) : [];
+    metaData.push(hash);
+    peer.dht.put(key, Buffer.from(JSON.stringify(metaData)));
+  });
+}
+
 function processCommand(command, peer) {
   console.log("Command was: " + command);
   args = command.split(" ");
@@ -112,19 +148,49 @@ function processCommand(command, peer) {
     }
   }
   if (args[0] == "store") {
-    console.log(fs.readFileSync(args[1], "utf8"));
-    peer.peerBook.getAllArray().forEach((p, i) => {
-      console.log(p);
+    const data = fs.readFileSync(args[1], "utf8");
+    console.log(data);
+    const dataHash = crypto
+      .createHash("md5")
+      .update(data)
+      .digest("hex");
+    const chunkQuantity = 2;
+    const chunks = splitString(data, chunkQuantity);
+    var peers = peer.peerBook.getAllArray();
+    _.sample(peers, chunkQuantity).forEach((p, i) => {
+      var s = new Readable();
+      s.push(i.toString());
+      s.push(dataHash);
+      s.push(chunks[i]);
+      s.push(null);
 
       peer.dialProtocol(p, "/file/1.0.0", (err, connection) => {
-        pull(toPull.duplex(fs.createReadStream(args[1])), connection);
+        pull(toPull.duplex(s), connection);
       });
+    });
+    addMetaData(peer, dataHash);
+  }
+  if (args[0] == "getPeerChunks") {
+    var id = peer.peerInfo.id.toB58String();
 
-      // peer.dialProtocol(p, peer.stats.protocols()[0], (err, conn) => {
-      //   console.log(conn.addStream(fs.createReadStream("start.sh")));
-      // });
+    glob(`shards/${id}*`, function(er, files) {
+      files.forEach(file => {
+        console.log(file, "\n", fs.readFileSync(file).toString());
+      });
     });
   }
-  if (args[0] == "test") {
+  if (args[0] == "findProviders") {
+    // peer.contentRouting.findProviders(new Cid(args[1]), (err, providers) => {
+    //   if (err) {
+    //     throw err;
+    //   }
+    //   console.log(
+    //     "Found providers:\n",
+    //     providers.map(p => p.id.toB58String()).join("\n")
+    //   );
+    // });
+  }
+  if (args[0] == "ping") {
+    console.log("pong");
   }
 }

@@ -5,6 +5,9 @@
   "main": "index.js",
   "dependencies": {
     "@nodeutils/defaults-deep": "^1.1.0",
+    "crypto": "^1.0.1",
+    "fs": "0.0.1-security",
+    "glob": "^7.1.6",
     "libp2p": "^0.26.2",
     "libp2p-bootstrap": "^0.9.7",
     "libp2p-kad-dht": "^0.14.15",
@@ -13,7 +16,9 @@
     "libp2p-spdy": "^0.13.3",
     "libp2p-tcp": "^0.13.2",
     "log": "^6.0.0",
-    "multiaddr": "^7.2.0"
+    "multiaddr": "^7.2.0",
+    "pull": "^2.1.1",
+    "underscore": "^1.9.1"
   },
   "devDependencies": {},
   "scripts": {
