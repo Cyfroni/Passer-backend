@@ -1,4 +1,3 @@
-const util = require("util");
 const KadDHT = require("libp2p-kad-dht");
 const Libp2p = require("libp2p");
 const TCP = require("libp2p-tcp");
@@ -9,10 +8,8 @@ const crypto = require("crypto");
 const _ = require("underscore");
 const toPull = require("stream-to-pull-stream");
 const Readable = require("stream").Readable;
-const glob = util.promisify(require("glob"));
-var fs = require("fs");
-fs.readFile = util.promisify(fs.readFile);
-fs.writeFile = util.promisify(fs.writeFile);
+const globby = require("globby");
+const fse = require("fs-extra");
 const pull = require("pull-stream");
 const CID = require("cids");
 const multihashing = require("multihashing-async");
@@ -77,7 +74,7 @@ class Node extends Libp2p {
           var num = data[0];
           var hash = data[1].toString();
           var shard = data[2].toString();
-          await fs.writeFile(`shards/${id}_${hash}_${num}`, shard);
+          await fse.writeFile(`shards/${id}_${hash}_${num}`, shard);
           console.log("File is created successfully.");
 
           const mh = await multihashing(Buffer.from(hash), "sha2-256");
@@ -140,7 +137,7 @@ class Node extends Libp2p {
   }
 
   async storeFile(fileName) {
-    const data = await fs.readFile(fileName, "utf8");
+    const data = await fse.readFile(fileName, "utf8");
     console.log(`FILE: ${fileName}\n${data}`);
 
     const dataHash = crypto
@@ -169,9 +166,9 @@ class Node extends Libp2p {
   }
 
   async getPeerChunks(regexp = "") {
-    var files = await glob(`shards/${this._id}_${regexp}*`);
+    var files = await globby(`shards/${this._id}_${regexp}*`);
 
-    return Promise.all(files.map(file => fs.readFile(file)));
+    return Promise.all(files.map(file => fse.readFile(file)));
   }
 
   async processCommand(command) {

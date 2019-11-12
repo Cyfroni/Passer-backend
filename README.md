@@ -35,6 +35,16 @@ Now every other node connects to the first node:
 
 The network is now set up and you can query DHT:
 
-`dht put key value`
+`dhtPut key value`
 
-`dht get key`
+`dhtGet key`
+
+You can also store and retrieve files:
+
+`storeFile fileName`
+
+`retrieveFile fileHash`
+
+Hashes are stored in the DHT under key 0:
+
+`dhtGet 0`

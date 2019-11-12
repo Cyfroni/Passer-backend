@@ -7,8 +7,8 @@
     "@nodeutils/defaults-deep": "^1.1.0",
     "cids": "^0.7.1",
     "crypto": "^1.0.1",
-    "fs": "0.0.1-security",
-    "glob": "^7.1.6",
+    "fs-extra": "^8.1.0",
+    "globby": "^10.0.1",
     "libp2p": "^0.26.2",
     "libp2p-bootstrap": "^0.9.7",
     "libp2p-kad-dht": "^0.14.15",
@@ -21,8 +21,7 @@
     "pull": "^2.1.1",
     "stream": "0.0.2",
     "stream-to-pull-stream": "^1.7.3",
-    "underscore": "^1.9.1",
-    "util": "^0.12.1"
+    "underscore": "^1.9.1"
   },
   "devDependencies": {},
   "scripts": {
