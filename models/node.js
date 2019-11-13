@@ -67,9 +67,12 @@ class Node extends Libp2p {
     });
 
     this.handle("/storeFile/1.0.0", (protocolName, connection) => {
+      // console.log(connection);
+      // console.log(typeof connection);
       pull(
         connection,
         pull.collect(async (err, data) => {
+          if (err) throw err;
           console.log("received:\n", data.toString());
           var num = data[0];
           var hash = data[1].toString();
@@ -90,6 +93,7 @@ class Node extends Libp2p {
       pull(
         connection,
         pull.collect(async (err, data) => {
+          if (err) throw err;
           console.log("received:\n", data.toString());
           var chunks = await this.getPeerChunks(data[0].toString());
           console.log("Chunks:", chunks);
@@ -159,6 +163,7 @@ class Node extends Libp2p {
       s.push(null);
 
       this.dialProtocol(p, "/storeFile/1.0.0", (err, connection) => {
+        if (err) throw err;
         pull(toPull.duplex(s), connection);
       });
     });
@@ -203,6 +208,7 @@ class Node extends Libp2p {
         pull(
           connection,
           pull.collect(async (err, data) => {
+            if (err) throw err;
             console.log(data.toString());
           })
         );
