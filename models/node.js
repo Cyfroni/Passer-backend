@@ -45,6 +45,45 @@ const DEFAULT_OPTS = {
   }
 };
 
+function splitString(str, n) {
+  let chunks = [];
+  let quantity = Math.ceil(str.length / n);
+  for (let i = 0, charsLength = str.length; i < charsLength; i += quantity) {
+    chunks.push(str.substring(i, i + quantity));
+  }
+  return chunks;
+}
+
+function sendData(data, connection) {
+  let stream = new Readable();
+  data.forEach(d => {
+    stream.push(d);
+  });
+  stream.push(null);
+
+  pull(toPull.duplex(stream), connection);
+  console.log(`Sent:\n${data}`);
+}
+
+async function getCidFromHash(hash) {
+  const mh = await multihashing(Buffer.from(hash), "sha2-256");
+  return new CID(1, "dag-pb", mh);
+}
+
+function getDataFromConnection(connection) {
+  const dataReceived = [];
+  pull(
+    connection,
+    pull.collect((err, data) => {
+      if (err) throw err;
+      dataReceived.push(data);
+      console.log(data);
+    })
+  );
+  console.log(`Received:\n${dataReceived}`);
+  return dataReceived;
+}
+
 class Node extends Libp2p {
   constructor(opts, bootstrap_list) {
     const bootstrap_opts = DEFAULT_OPTS;
@@ -54,8 +93,8 @@ class Node extends Libp2p {
 
   addListeners() {
     this._id = this.peerInfo.id.toB58String();
-    var id = this._id;
-    var cRouting = this.contentRouting;
+    let id = this._id;
+    let cRouting = this.contentRouting;
 
     this.on("error", err => {
       console.error("libp2p error: ", err);
@@ -66,41 +105,29 @@ class Node extends Libp2p {
       console.log("Connection established to:", peer.id.toB58String());
     });
 
-    this.handle("/storeFile/1.0.0", (protocolName, connection) => {
-      // console.log(connection);
-      // console.log(typeof connection);
-      pull(
-        connection,
-        pull.collect(async (err, data) => {
-          if (err) throw err;
-          console.log("received:\n", data.toString());
-          var num = data[0];
-          var hash = data[1].toString();
-          var shard = data[2].toString();
-          await fse.writeFile(`shards/${id}_${hash}_${num}`, shard);
-          console.log("File is created successfully.");
+    this.handle("/storeFile/1.0.0", async (protocolName, connection) => {
+      const data = getDataFromConnection(connection);
 
-          const mh = await multihashing(Buffer.from(hash), "sha2-256");
-          const cid = new CID(1, "dag-pb", mh);
-          console.log(cid.toString());
-          await cRouting.provide(cid);
+      let num = data[0];
+      let hash = data[1].toString();
+      let shard = data[2].toString();
 
-          console.log("Node %s is providing %s", id, cid.toString());
-        })
-      );
+      await fse.writeFile(`shards/${id}_${hash}_${num}`, shard);
+      console.log("File is created successfully.");
+
+      let cid = getCidFromHash(hash);
+      await cRouting.provide(cid);
+      console.log("Node %s is providing %s", id, cid.toString());
     });
-    this.handle("/retrieveFile/1.0.0", (protocolName, connection) => {
-      pull(
-        connection,
-        pull.collect(async (err, data) => {
-          if (err) throw err;
-          console.log("received:\n", data.toString());
-          var chunks = await this.getPeerChunks(data[0].toString());
-          console.log("Chunks:", chunks);
+    this.handle("/retrieveFile/1.0.0", async (protocolName, connection) => {
+      let data = getDataFromConnection(connection);
 
-          pull(pull.values(chunks), connection);
-        })
-      );
+      const fileHash = data[0].toString();
+
+      let chunks = await this.getPeerChunks(fileHash);
+      console.log("Chunks:", chunks);
+
+      sendData(chunks, connection);
     });
   }
 
@@ -125,60 +152,60 @@ class Node extends Libp2p {
     }
   }
   async addMetaData(hash) {
-    var metaData = await this.dhtGet("0");
+    let metaData = await this.dhtGet("0");
     metaData = metaData ? JSON.parse(metaData) : [];
     metaData.push(hash);
     this.dhtPut("0", JSON.stringify(metaData));
   }
 
-  splitString(str, n) {
-    var chunks = [];
-    var quantity = Math.ceil(str.length / n);
-    for (var i = 0, charsLength = str.length; i < charsLength; i += quantity) {
-      chunks.push(str.substring(i, i + quantity));
-    }
-    return chunks;
+  sendDataToPeer(peer, protocol, data, response = false) {
+    let dataReceived;
+    this.dialProtocol(peer, protocol, (err, connection) => {
+      if (err) throw err;
+      sendData(data, connection);
+      if (response) dataReceived = getDataFromConnection(connection);
+    });
+    return dataReceived;
   }
 
-  async storeFile(fileName) {
-    const data = await fse.readFile(fileName, "utf8");
-    console.log(`FILE: ${fileName}\n${data}`);
-
-    const dataHash = crypto
-      .createHash("md5")
-      .update(data)
-      .digest("hex");
-
-    const chunks = this.splitString(data, chunkQuantity);
-    var peers = this.peerBook.getAllArray();
+  getPeersToStore() {
+    let peers = this.peerBook.getAllArray();
     if (peers.length < chunkQuantity)
       throw new Error(
         `Not enough connected peers (${peers.length} < ${chunkQuantity})`
       );
-    _.sample(peers, chunkQuantity).forEach((p, i) => {
-      var s = new Readable();
-      s.push(i.toString());
-      s.push(dataHash);
-      s.push(chunks[i]);
-      s.push(null);
 
-      this.dialProtocol(p, "/storeFile/1.0.0", (err, connection) => {
-        if (err) throw err;
-        pull(toPull.duplex(s), connection);
-      });
+    return _.sample(peers, chunkQuantity);
+  }
+
+  async storeFile(fileName) {
+    const file = await fse.readFile(fileName, "utf8");
+    console.log(`FILE: ${fileName}\n${file}`);
+
+    const chunks = splitString(file, chunkQuantity);
+    const peers = this.getPeersToStore();
+
+    const dataHash = crypto
+      .createHash("md5")
+      .update(file)
+      .digest("hex");
+
+    peers.forEach((p, i) => {
+      const data = [i.toString(), dataHash, chunks[i]];
+      this.sendDataToPeer(p, "/storeFile/1.0.0", data);
     });
     this.addMetaData(dataHash);
   }
 
   async getPeerChunks(regexp = "") {
-    var files = await globby(`shards/${this._id}_${regexp}*`);
+    let files = await globby(`shards/${this._id}_${regexp}*`);
 
     return Promise.all(files.map(file => fse.readFile(file)));
   }
 
   async processCommand(command) {
-    var args = command.split(" ");
-    var fun = args.shift();
+    let args = command.split(" ");
+    let fun = args.shift();
 
     try {
       console.log("RESULT:\n", await this[fun](...args));
@@ -188,32 +215,19 @@ class Node extends Libp2p {
   }
 
   async findProviders(hash) {
-    const mh = await multihashing(Buffer.from(hash), "sha2-256");
-    const cid = new CID(1, "dag-pb", mh);
-
-    return this.contentRouting.findProviders(cid);
+    return this.contentRouting.findProviders(getCidFromHash(hash));
   }
 
   async retrieveFile(hash) {
     const providers = await this.findProviders(hash);
-    providers.forEach(p => {
-      console.log(p._id);
-      var s = new Readable();
-      s.push(hash);
-      s.push(null);
-
-      this.dialProtocol(p, "/retrieveFile/1.0.0", (err, connection) => {
-        if (err) throw err;
-        pull(toPull.duplex(s), connection);
-        pull(
-          connection,
-          pull.collect(async (err, data) => {
-            if (err) throw err;
-            console.log(data.toString());
-          })
-        );
-      });
+    let chunks = [];
+    providers.forEach(peer => {
+      // console.log(p._id);
+      const protocol = "/retrieveFile/1.0.0";
+      const data = [hash];
+      chunks.push(this.sendDataToPeer(peer, protocol, data, true));
     });
+    // console.log(chunks);
   }
 
   js(...js) {
