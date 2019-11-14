@@ -19,8 +19,6 @@
     "multiaddr": "^7.2.0",
     "multihashing-async": "^0.8.0",
     "pull": "^2.1.1",
-    "stream": "0.0.2",
-    "stream-to-pull-stream": "^1.7.3",
     "underscore": "^1.9.1"
   },
   "devDependencies": {},

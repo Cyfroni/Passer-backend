@@ -6,8 +6,6 @@ const SECIO = require("libp2p-secio");
 const Bootstrap = require("libp2p-bootstrap");
 const crypto = require("crypto");
 const _ = require("underscore");
-const toPull = require("stream-to-pull-stream");
-const Readable = require("stream").Readable;
 const globby = require("globby");
 const fse = require("fs-extra");
 const pull = require("pull-stream");
@@ -86,11 +84,10 @@ class Node extends Libp2p {
         pull.collect(async (err, data) => {
           if (err) throw err;
 
-          const num = data[0];
-          const hash = data[1].toString();
-          const shard = data[2].toString();
+          const hash = data[0].toString();
+          const shard = data[1].toString();
 
-          await fse.writeFile(`shards/${id}_${hash}_${num}`, shard);
+          await fse.writeFile(`shards/${id}_${hash}`, shard);
           console.log("File is created successfully.");
 
           const cid = await getCidFromHash(hash);
@@ -106,9 +103,9 @@ class Node extends Libp2p {
           if (err) throw err;
           const fileHash = data[0].toString();
 
-          const chunks = await this.getPeerChunks(fileHash);
-          console.log("Chunks:", chunks);
-          pull(pull.values(chunks), connection);
+          const chunk = await this.getChunkFromPeer(fileHash);
+          console.log("Chunk:", chunk);
+          pull(pull.values([chunk]), connection);
         })
       );
     });
@@ -164,19 +161,20 @@ class Node extends Libp2p {
       .digest("hex");
 
     peers.forEach((peer, i) => {
-      const data = [i.toString(), dataHash, chunks[i]];
+      const data = [dataHash, chunks[i]];
 
       this.dialProtocol(peer, "/storeFile/1.0.0", (err, connection) => {
+        if (err) throw err;
         pull(pull.values(data), connection);
       });
     });
     this.addMetaData(dataHash);
   }
 
-  async getPeerChunks(regexp = "") {
-    const files = await globby(`shards/${this._id}_${regexp}*`);
+  async getChunkFromPeer(hash = "*") {
+    const files = await globby(`shards/${this._id}_${hash}`);
 
-    return Promise.all(files.map(file => fse.readFile(file)));
+    return fse.readFile(files[0]);
   }
 
   async processCommand(command) {
@@ -195,15 +193,38 @@ class Node extends Libp2p {
     return this.contentRouting.findProviders(cid);
   }
 
-  async retrieveFile(hash) {
-    const providers = await this.findProviders(hash);
-    providers.forEach(peer => {
-      const data = [hash];
-
+  getChunkFromAnotherPeer(peer, hash) {
+    const data = [hash];
+    return new Promise((resolve, reject) => {
       this.dialProtocol(peer, "/retrieveFile/1.0.0", (err, connection) => {
-        pull(pull.values(data), connection, pull.log());
+        if (err) throw err;
+        pull(
+          pull.values(data),
+          connection,
+          pull.collect((err, data) => {
+            if (err) throw err;
+            resolve(data[0]);
+          })
+        );
       });
     });
+  }
+
+  getFileChunksFromPeers(peers, hash) {
+    let chunks = peers.map(peer => {
+      if (peer.id.toB58String() == this._id) {
+        return this.getChunkFromPeer(hash);
+      }
+      return this.getChunkFromAnotherPeer(peer, hash);
+    });
+    return Promise.all(chunks);
+  }
+
+  async retrieveFile(hash) {
+    const providers = await this.findProviders(hash);
+    const chunks = await this.getFileChunksFromPeers(providers, hash);
+    console.log(chunks);
+    console.log(chunks.map(chunk => chunk.toString()));
   }
 
   js(...js) {
