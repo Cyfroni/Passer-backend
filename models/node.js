@@ -11,12 +11,14 @@ const fse = require("fs-extra");
 const pull = require("pull-stream");
 const CID = require("cids");
 const multihashing = require("multihashing-async");
+const ReedSolomon = require('@ronomon/reed-solomon');
 
 const defaultsDeep = require("@nodeutils/defaults-deep");
 
 const bootstrapers = [];
 
 const chunkQuantity = 2;
+
 
 const DEFAULT_OPTS = {
   modules: {
@@ -138,37 +140,111 @@ class Node extends Libp2p {
     this.dhtPut("0", JSON.stringify(metaData));
   }
 
-  getPeersToStore() {
+  getPeersToStore(requiredPeers) {
     const peers = this.peerBook.getAllArray();
-    if (peers.length < chunkQuantity)
+    console.log(`Peers: ${peers}`);
+    if (peers.length < requiredPeers)
       throw new Error(
-        `Not enough connected peers (${peers.length} < ${chunkQuantity})`
+        `Not enough connected peers (${peers.length} < ${requiredPeers})`
       );
 
-    return _.sample(peers, chunkQuantity);
+    return _.sample(peers, requiredPeers);
   }
 
   async storeFile(fileName) {
     const file = await fse.readFile(fileName, "utf8");
     console.log(`FILE: ${fileName}\n${file}`);
 
-    const chunks = splitString(file, chunkQuantity);
-    const peers = this.getPeersToStore();
+    var byteLength = Buffer.byteLength(file, 'utf8')
+    //console.log(`SIZE IN BYTES: ${byteLength}`)
+    
+    var dataShardsQuantity = 2;
+    var parityShardsQuantity = 1;
 
+    var context = ReedSolomon.create(dataShardsQuantity, parityShardsQuantity);
+    
+    var shard_bytes = byteLength / dataShardsQuantity;
+
+    var shardSize = Math.ceil(shard_bytes);
+    while (shardSize % 8 != 0){
+      //console.log(`Fuck ${shardSize}`);
+      shardSize += 1;
+    }
+
+    //console.log(`SHARD SIZE IN BYTES: ${shardSize}`)
+
+    var buffer = Buffer.alloc(shardSize * dataShardsQuantity);
+    var bufferOffset = 0;
+    var bufferSize = shardSize * dataShardsQuantity;
+
+    var parity = Buffer.alloc(shardSize * parityShardsQuantity);
+    var parityOffset = 0;
+    var paritySize = shardSize * parityShardsQuantity;
+    
+    var sources = 0;
+    for (var i = 0; i < dataShardsQuantity; i++) sources |= (1 << i);
+    
+    var targets = 0;
+    for (var i = dataShardsQuantity; i < dataShardsQuantity + parityShardsQuantity; i++) targets |= (1 << i);
+
+    buffer.fill(file, bufferOffset + (shardSize * 0), byteLength, "utf-8");
+    //buffer.fill(" 2 sdafasdf asdfasd", bufferOffset + (shardSize * 1), "utf-8");
+    //buffer.fill(" 3 dsfasdf ", bufferOffset + (shardSize * 2), "utf-8");
+    //buffer.fill(" 4 safd ds fsda", bufferOffset + (shardSize * 3), "utf-8");
+    console.log(`Buffer: ${buffer}`);
+
+    // Encode all parity shards:
+    ReedSolomon.encode(
+      context,
+      sources,
+      targets,
+      buffer,
+      bufferOffset,
+      bufferSize,
+      parity,
+      parityOffset,
+      paritySize,
+      function(error) {
+        if (error) throw error;
+        // Parity shards now contain parity data.
+      }
+    );
+    //console.log(`Buffer: ${buffer}`);
+    //console.log(`Parity: ${parity}`);
+
+    const chunks = splitString(file, chunkQuantity);
+    const peers = this.getPeersToStore(dataShardsQuantity + parityShardsQuantity);
+
+    const chunks2 = Buffer.concat([buffer, parity]);
+    //console.log(`Concatenated: ${chunks2}`);
+    //console.log(`Concatenated2: ${chunks2.toString("utf-8", bufferOffset + (shardSize * 0), bufferOffset + (shardSize * 1))}`);
+    //console.log(`Concatenated2: ${chunks2.toString("utf-8", bufferOffset + (shardSize * 4), bufferOffset + (shardSize * 5))}`);
     const dataHash = crypto
       .createHash("md5")
       .update(file)
       .digest("hex");
 
+    var shardsOrder = {}
     peers.forEach((peer, i) => {
-      const data = [dataHash, chunks[i]];
+      var chunk = chunks2.toString("utf-8", bufferOffset + (shardSize * (i)), bufferOffset + (shardSize * (i+1)))
+      const data = [dataHash, chunk];
 
+      shardsOrder[i] = peer.id.toB58String();
       this.dialProtocol(peer, "/storeFile/1.0.0", (err, connection) => {
         if (err) throw err;
         pull(pull.values(data), connection);
       });
     });
-    this.addMetaData(dataHash);
+    var meta = {
+      "hash": dataHash,
+      "dataShardsQuantity": dataShardsQuantity,
+      "parityShardsQuantity": parityShardsQuantity,
+      "shardsOrder": shardsOrder,
+      "shardSize": shardSize,
+      "fileName": fileName,
+      "byteLength": byteLength
+    }
+    this.addMetaData(meta);
   }
 
   async getChunkFromPeer(hash = "*") {
@@ -197,7 +273,7 @@ class Node extends Libp2p {
     const data = [hash];
     return new Promise((resolve, reject) => {
       this.dialProtocol(peer, "/retrieveFile/1.0.0", (err, connection) => {
-        if (err) throw err;
+        if (err) return err;
         pull(
           pull.values(data),
           connection,
@@ -212,16 +288,28 @@ class Node extends Libp2p {
 
   getFileChunksFromPeers(peers, hash) {
     let chunks = peers.map(peer => {
+      console.log('GET CHUNKS FROM PEER: ' + peer.id);
+      console.log('HASH: ' + hash);
       if (peer.id.toB58String() == this._id) {
         return this.getChunkFromPeer(hash);
       }
-      return this.getChunkFromAnotherPeer(peer, hash);
+      var chunk;
+      try {
+        chunk = this.getChunkFromAnotherPeer(peer, hash);
+        console.log('Type of chunk: ' + typeof(chunk));
+      }
+      catch (e){
+        chunk = e;
+        console.log('Type of exception: ' + typeof(e));
+      }
+      return chunk
     });
     return Promise.all(chunks);
   }
 
   async retrieveFile(hash) {
     const providers = await this.findProviders(hash);
+
     const chunks = await this.getFileChunksFromPeers(providers, hash);
     console.log(chunks);
     console.log(chunks.map(chunk => chunk.toString()));
