@@ -21,7 +21,7 @@ peerNumber - number of peers to start (1 - default)
 mode - 0 (interactive mode - default), 1 (api mode)
 ```
 
-### interactive mode
+## Interactive mode
 
 The network is now set up and you can query DHT:
 
@@ -39,6 +39,56 @@ Hashes are stored in the DHT under key 0:
 
 `dhtGet 0`
 
-### Api
+## Api
 
-TODO
+`http://localhost:8080/`
+
+### GET /api/files
+
+Returns all files in the network
+
+returns:
+
+```
+[
+    {
+        name: ..
+        hash: ..
+    },
+    ..
+]
+```
+
+### POST /api/retrieveFile
+
+Returns file of given hash
+
+body:
+
+```
+{
+    hash: ..
+}
+```
+
+returns:
+
+```
+{
+    name: ..
+    data: ..
+}
+```
+
+### POST /api/uploadFile
+
+Uploads given file to the network
+
+body:
+
+```
+{
+    name: ..
+    data: ..
+}
+```
