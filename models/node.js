@@ -194,12 +194,21 @@ class Node extends Libp2p {
       console.log(`GET: (${k}) -> ${e.message}`)
     }
   }
+
+  async getMetaData() {
+    const metaData = await this.dhtGet("0")
+    return metaData ? JSON.parse(metaData) : {}
+  }
+
+  async getFileNameFromHash(fileHash) {
+    const metaData = await this.getMetaData()
+    return metaData[fileHash].fileName
+  }
+
   async addMetaData(dataHash, meta) {
-    let metaData = await this.dhtGet("0")
-    metaData = metaData ? JSON.parse(metaData) : {}
-    //metaData.push(hash);
+    const metaData = await this.getMetaData()
     metaData[dataHash] = meta
-    this.dhtPut("0", JSON.stringify(metaData))
+    await this.dhtPut("0", JSON.stringify(metaData))
   }
 
   getPeersToStore(requiredPeers) {
@@ -213,8 +222,8 @@ class Node extends Libp2p {
     return _.sample(peers, requiredPeers)
   }
 
-  async storeFile(fileName) {
-    const file = await fse.readFile(fileName, "utf8")
+  async storeFile(fileName, data) {
+    const file = data ? data : await fse.readFile(fileName, "utf8")
     console.log(`FILE: ${fileName}\n${file}`)
 
     var byteLength = Buffer.byteLength(file, "utf8")
@@ -410,6 +419,8 @@ class Node extends Libp2p {
     }
     console.log(`These are chunks (file): ${chunks}`)
     //console.log(chunks.map(chunk => chunk.toString()));
+    console.log(chunks)
+    return chunks
   }
 
   repairFile(fileData, chunks, corrupted_chunks) {

@@ -16,11 +16,10 @@ console.log(`Running in ${modes[mode]} mode.`)
 async function start() {
   const masterPeer = await createPeers(peerNumber)
 
-  if (mode == 0) {
-    masterPeer.createInterface()
-  } else {
+  if (mode == 1) {
     createApi(masterPeer)
   }
+  masterPeer.createInterface()
 }
 
 start()
