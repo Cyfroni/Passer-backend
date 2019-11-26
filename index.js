@@ -1,5 +1,6 @@
-const { createPeers } = require("./peerService")
-const { createApi } = require("./api")
+const { createPeers } = require("./services/peerService")
+const { createApi } = require("./app/api")
+const { createInterface } = require("./utils/interface")
 
 const modes = ["interactive", "api"]
 
@@ -19,7 +20,7 @@ async function start() {
   if (mode == 1) {
     createApi(masterPeer)
   }
-  masterPeer.createInterface()
+  createInterface(masterPeer)
 }
 
 start()
