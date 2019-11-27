@@ -7,6 +7,7 @@
     "@nodeutils/defaults-deep": "^1.1.0",
     "@ronomon/reed-solomon": "^6.0.0",
     "async": "^3.1.0",
+    "await-timeout": "^1.0.1",
     "cids": "^0.7.1",
     "cors": "^2.8.5",
     "es6-promisify": "^6.0.2",

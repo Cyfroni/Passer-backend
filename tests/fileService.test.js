@@ -1,11 +1,7 @@
 const FileService = require("../services/FileService")
 
 const mockPeer = {
-  peerInfo: {
-    id: {
-      toB58String: () => {}
-    }
-  }
+  getId: () => {}
 }
 
 describe("erasure", () => {

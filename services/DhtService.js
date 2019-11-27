@@ -6,7 +6,7 @@ module.exports = class DhtService {
   async getString(key) {
     const k = Buffer.from(key)
     try {
-      const v = await this.dht.get(k)
+      const v = await this.dht.get(k, { timeout: 1000 })
       console.log(`GET: (${k},${v})`)
       return v
     } catch (e) {

@@ -19,9 +19,11 @@ module.exports = class DiscoveryService {
   }
 
   async findProvider(hash) {
+    return (await this.findProviders(hash))[0]
+  }
+  async findProviders(hash) {
     const cid = await getCidFromHash(hash)
-    const providers = await this.contentRouting.findProviders(cid)
-    return providers[0]
+    return await this.contentRouting.findProviders(cid, { timeout: 1000 })
   }
 
   getPeersToStore(requiredPeers) {
