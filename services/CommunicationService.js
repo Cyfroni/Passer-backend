@@ -1,22 +1,22 @@
 const { promisify } = require("es6-promisify")
 const pull = require("pull-stream")
 const _ = require("underscore")
+const Timeout = require("await-timeout")
 
 module.exports = class CommunicationService {
   constructor(peer) {
     this.dialProtocol = promisify(peer.dialProtocol)
   }
 
-  timeout(ms) {
-    return new Promise((resolve, reject) => setTimeout(reject, ms))
-  }
-
   async connect(peer, protocol) {
     try {
-      const connection = this.dialProtocol(peer, protocol)
-      return await connection //Promise.race([connection, this.timeout(500)])
+      return await Timeout.wrap(
+        this.dialProtocol(peer, protocol),
+        1000,
+        "Connection timeout -> " + peer.id.toB58String()
+      )
     } catch (e) {
-      console.log(e)
+      console.log(e.message)
     }
   }
 
@@ -54,6 +54,16 @@ module.exports = class CommunicationService {
       const chunk = await this.receiveJson(connection)
 
       return Buffer.from(chunk)
+    }
+  }
+
+  async storeFileR(peers, file) {
+    const protocol = "/storeFile/1.0.0"
+    for await (const peer of peers) {
+      const connection = await this.connect(peer, protocol)
+      if (connection) {
+        this.sendJson(file, connection)
+      }
     }
   }
 }

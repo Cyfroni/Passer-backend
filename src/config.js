@@ -28,7 +28,7 @@ module.exports = {
       autoDial: true, // Auto connect to discovered peers (limited by ConnectionManager minPeers)
       mdns: {
         // mdns options
-        interval: 10000, // ms
+        interval: 1000, // ms
         enabled: true
       },
       webrtcStar: {
@@ -47,13 +47,7 @@ module.exports = {
       }
     },
     dht: {
-      kBucketSize: 20,
-      enabled: true,
-      randomWalk: {
-        enabled: true, // Allows to disable discovery (enabled by default)
-        interval: 300e3,
-        timeout: 10e3
-      }
+      enabled: true
     },
     pubsub: {
       enabled: true,

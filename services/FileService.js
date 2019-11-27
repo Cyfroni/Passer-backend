@@ -7,7 +7,7 @@ const erasureRS = require("../utils/erasure_code")
 
 module.exports = class FileService {
   constructor(peer) {
-    this.peerId = peer.peerInfo.id.toB58String()
+    this.peerId = peer.getId()
   }
 
   async loadFile(path) {
