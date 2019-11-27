@@ -14,30 +14,41 @@ class Node extends Libp2p {
   }
 
   addListeners() {
-    const it = this
+    this.on("start", () => {
+      console.error("peer start: ", this.getId())
+    })
+
+    this.on("stop", () => {
+      console.error("peer stop: ", this.getId())
+    })
 
     this.on("error", err => {
-      console.error("libp2p error: ", err)
+      console.error("peer error: ", err)
       throw err
     })
 
     this.on("peer:connect", peer => {
-      console.log("Connection established to:", peer.id.toB58String())
+      //console.log("Connection established to:", peer.id.toB58String())
     })
 
     this.handle("/storeFile/1.0.0", async (protocolName, connection) => {
-      const { hash, data } = await it.communicationService.receiveJson(
+      const { hash, data } = await this.communicationService.receiveJson(
         connection
       )
-      await it.fileService.storeChunk(hash, data)
-      await it.discoveryService.addProvider(hash)
-      console.log("Node %s is providing %s", it.getId(), hash)
+      await this.fileService.storeChunk(hash, data)
+      await this.discoveryService.addProvider(hash)
+      console.log("Node %s is providing %s", this.getId(), hash)
     })
 
     this.handle("/retrieveFile/1.0.0", async (protocolName, connection) => {
-      const { hash } = await it.communicationService.receiveJson(connection)
+      const { hash } = await this.communicationService.receiveJson(connection)
       const data = await this.fileService.loadChunk(hash)
       this.communicationService.sendJson(data.toJSON(), connection)
+    })
+
+    this.handle("/terminate/1.0.0", async (protocolName, connection) => {
+      // console.log("peer terminated:", this.getId())
+      this.stop()
     })
   }
 
@@ -62,7 +73,7 @@ class Node extends Libp2p {
     const data = content ? content : await this.fileService.loadFile(name)
     const hash = this.fileService.calculateHash(data)
     const { chunks, ...info } = await this.fileService.createChunks(data)
-    const peers = this.discoveryService.getPeersToStore(chunks.length)
+    const peers = this.discoveryService.getPeers(chunks.length)
     await this.communicationService.storeFile(peers, chunks)
     await this.dhtService.addMetaData(hash, { name })
     await this.dhtService.putFileInfo(hash, {
@@ -94,26 +105,43 @@ class Node extends Libp2p {
       : await this.communicationService.retrieveChunkFromPeer(peer, hash)
   }
 
+  js(...js) {
+    return eval(js.join(" "))
+  }
+
   getId() {
     return this.peerInfo.id.toB58String()
   }
 
-  getAddrs() {
-    return this.peerInfo.multiaddrs.toArray()
-  }
-  getAddr() {
-    return this.getAddrs()[1].toString()
+  async meta() {
+    return await this.getFilesMetaData()
   }
 
-  js(...js) {
-    return eval(js.join(" "))
+  async dpeers() {
+    const peers = this.discoveryService
+      .getPeers()
+      .map(peer => peer.id.toB58String())
+    console.log(peers)
+    return peers.length
+  }
+
+  async tpeers(chance) {
+    const counter = await Promise.all(
+      this.discoveryService.getPeers().map(async peer => {
+        if (Math.random() < chance) {
+          await this.communicationService.terminatePeer(peer)
+          return true
+        }
+      })
+    )
+    return counter.filter(e => e).length
   }
 
   async storeFileR(name, content) {
     const expansion = 2
     const data = content ? content : await this.fileService.loadFile(name)
     const hash = this.fileService.calculateHash(data)
-    const peers = this.discoveryService.getPeersToStore(expansion)
+    const peers = this.discoveryService.getPeers(expansion)
     await this.communicationService.storeFileR(peers, { data, hash })
     await this.dhtService.addMetaData(hash, { name })
   }

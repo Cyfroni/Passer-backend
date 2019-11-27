@@ -23,15 +23,19 @@ module.exports = class DiscoveryService {
   }
   async findProviders(hash) {
     const cid = await getCidFromHash(hash)
-    return await this.contentRouting.findProviders(cid, { timeout: 1000 })
+    return await this.contentRouting.findProviders(cid, { timeout: 2000 })
   }
 
-  getPeersToStore(requiredPeers) {
-    const peers = this.peerBook.getAllArray()
-    if (peers.length < requiredPeers)
-      throw new Error(
-        `Not enough connected peers (${peers.length} < ${requiredPeers})`
-      )
-    return _.sample(peers, requiredPeers)
+  getPeers(requiredPeers) {
+    const peers = this.peerBook.getAllArray().filter(p => p.isConnected())
+    if (requiredPeers) {
+      if (peers.length < requiredPeers)
+        throw new Error(
+          `Not enough connected peers (${peers.length} < ${requiredPeers})`
+        )
+      return _.sample(peers, requiredPeers)
+    } else {
+      return peers
+    }
   }
 }

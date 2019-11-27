@@ -2,12 +2,9 @@ const { createNode } = require("../src/node")
 
 async function createPeer() {
   const peer = await createNode({})
-  await peer.start(() => {
-    peer.addListeners()
-    peer.createServices()
-  })
-
-  console.log("peer started. listening on addresses:", peer.getAddr())
+  peer.addListeners()
+  peer.createServices()
+  peer.start()
 
   return peer
 }

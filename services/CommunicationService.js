@@ -9,14 +9,8 @@ module.exports = class CommunicationService {
   }
 
   async connect(peer, protocol) {
-    try {
-      return await Timeout.wrap(
-        this.dialProtocol(peer, protocol),
-        1000,
-        "Connection timeout -> " + peer.id.toB58String()
-      )
-    } catch (e) {
-      console.log(e.message)
+    if (peer.isConnected()) {
+      return this.dialProtocol(peer, protocol)
     }
   }
 
@@ -55,6 +49,11 @@ module.exports = class CommunicationService {
 
       return Buffer.from(chunk)
     }
+  }
+
+  async terminatePeer(peer) {
+    const protocol = "/terminate/1.0.0"
+    await this.connect(peer, protocol)
   }
 
   async storeFileR(peers, file) {

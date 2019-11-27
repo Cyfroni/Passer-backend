@@ -7,10 +7,10 @@ module.exports = class DhtService {
     const k = Buffer.from(key)
     try {
       const v = await this.dht.get(k, { timeout: 1000 })
-      console.log(`GET: (${k},${v})`)
+      // console.log(`GET: (${k},${v})`)
       return v
     } catch (e) {
-      console.log(`GET: (${k}) -> ${e.message}`)
+      // console.log(`GET: (${k}) -> ${e.message}`)
     }
   }
 
@@ -19,9 +19,9 @@ module.exports = class DhtService {
     const v = Buffer.from(value)
     try {
       await this.dht.put(k, v)
-      console.log(`PUT: (${k},${v})`)
+      // console.log(`PUT: (${k},${v})`)
     } catch (e) {
-      console.log(`PUT: (${k},${v}) -> ${e.message}`)
+      // console.log(`PUT: (${k},${v}) -> ${e.message}`)
     }
   }
 

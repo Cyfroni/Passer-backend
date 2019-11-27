@@ -2,7 +2,6 @@ const TCP = require("libp2p-tcp")
 const WS = require("libp2p-websockets")
 const SPDY = require("libp2p-spdy")
 const MPLEX = require("libp2p-mplex")
-const SECIO = require("libp2p-secio")
 const MulticastDNS = require("libp2p-mdns")
 const DHT = require("libp2p-kad-dht")
 const GossipSub = require("libp2p-gossipsub")
@@ -15,7 +14,6 @@ module.exports = {
       new WS() // It can take instances too!
     ],
     streamMuxer: [SPDY, MPLEX],
-    connEncryption: [SECIO],
     peerDiscovery: [MulticastDNS],
     dht: DHT, // DHT enables PeerRouting, ContentRouting and DHT itself components
     pubsub: GossipSub

@@ -24,5 +24,3 @@ async function start() {
 }
 
 start()
-
-// TODO: handle stop
