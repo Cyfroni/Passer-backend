@@ -64,15 +64,15 @@ class Node extends Libp2p {
     const { chunks, ...info } = await this.fileService.createChunks(data)
     const peers = this.discoveryService.getPeersToStore(chunks.length)
     await this.communicationService.storeFile(peers, chunks)
-    await this.dhtService.addMetaData(hash, {
-      name,
+    await this.dhtService.addMetaData(hash, { name })
+    await this.dhtService.putFileInfo(hash, {
       hashes: chunks.map(chunk => chunk.hash),
       ...info
     })
   }
 
   async retrieveFile(hash) {
-    const { hashes, ...info } = await this.dhtService.getMetaData(hash)
+    const { hashes, ...info } = await this.dhtService.getFileInfo(hash)
 
     const chunks = await Promise.all(
       hashes.map(async hash => {
@@ -115,10 +115,7 @@ class Node extends Libp2p {
     const hash = this.fileService.calculateHash(data)
     const peers = this.discoveryService.getPeersToStore(expansion)
     await this.communicationService.storeFileR(peers, { data, hash })
-    await this.dhtService.addMetaData(hash, {
-      name,
-      hashes: [hash]
-    })
+    await this.dhtService.addMetaData(hash, { name })
   }
 
   async retrieveFileR(hash) {

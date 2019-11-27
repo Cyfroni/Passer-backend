@@ -5,7 +5,7 @@ const mockPeer = {
 }
 
 describe("erasure", () => {
-  it("should divide file into shards", async () => {
+  it("should reconstruct corrupted file", async () => {
     const fileService = new FileService(mockPeer)
 
     const file = new Array(50).join("abc")

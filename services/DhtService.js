@@ -51,6 +51,19 @@ module.exports = class DhtService {
     await this.putJson("0", metaData)
   }
 
+  async getFileInfo(hash, info) {
+    return await this.getJson(hash)
+  }
+
+  async addFileInfo(hash, info) {
+    const fileInfo = await this.getFileInfo(hash)
+    await this.putFileInfo(hash, { ...fileInfo, ...info })
+  }
+
+  async putFileInfo(hash, info) {
+    return await this.putJson(hash, info)
+  }
+
   async getFileNameFromHash(hash) {
     const metaData = await this.getMetaData()
     return metaData[hash].fileName
