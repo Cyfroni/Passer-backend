@@ -28,7 +28,7 @@ class Node extends Libp2p {
     })
 
     this.on("peer:connect", peer => {
-      //console.log("Connection established to:", peer.id.toB58String())
+      // console.log("Connection established to:", peer.id.toB58String())
     })
 
     this.handle("/storeFile/1.0.0", async (protocolName, connection) => {
@@ -88,11 +88,9 @@ class Node extends Libp2p {
     const chunks = await Promise.all(
       hashes.map(async hash => {
         const provider = await this.discoveryService.findProvider(hash)
-        const chunk = await this.communicationService.retrieveChunkFromPeer(
-          provider,
-          hash
-        )
-        return chunk
+        if (provider) {
+          return await this.getChunkFromPeer(provider, hash)
+        }
       })
     )
 
@@ -100,7 +98,8 @@ class Node extends Libp2p {
   }
 
   async getChunkFromPeer(peer, hash) {
-    return provider.id == this.id
+    console.log(this.peerInfo.id.isEqual(peer.id))
+    return this.peerInfo.id.isEqual(peer.id)
       ? this.fileService.loadChunk(hash)
       : await this.communicationService.retrieveChunkFromPeer(peer, hash)
   }
@@ -170,6 +169,7 @@ const createNode = promisify((options, callback) => {
   if (options.peerInfo) {
     return nextTick(callback, null, new Node(options))
   }
+  // const peerId = options.id
   PeerInfo.create((err, peerInfo) => {
     if (err) return callback(err)
     peerInfo.multiaddrs.add("/ip4/0.0.0.0/tcp/0")

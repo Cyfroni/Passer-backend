@@ -9,11 +9,8 @@ const GossipSub = require("libp2p-gossipsub")
 module.exports = {
   // The libp2p modules for this libp2p bundle
   modules: {
-    transport: [
-      TCP,
-      new WS() // It can take instances too!
-    ],
-    streamMuxer: [SPDY, MPLEX],
+    transport: [TCP],
+    streamMuxer: [MPLEX],
     peerDiscovery: [MulticastDNS],
     dht: DHT, // DHT enables PeerRouting, ContentRouting and DHT itself components
     pubsub: GossipSub
