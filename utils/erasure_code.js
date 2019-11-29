@@ -2,8 +2,8 @@ const { promisify } = require("es6-promisify")
 const ReedSolomon = require("@ronomon/reed-solomon")
 ReedSolomon.encode = promisify(ReedSolomon.encode)
 
-const dataShardsQuantity = 8
-const parityShardsQuantity = 4
+const dataShardsQuantity = 4
+const parityShardsQuantity = 2
 const shardsQuantity = dataShardsQuantity + parityShardsQuantity
 const context = ReedSolomon.create(dataShardsQuantity, parityShardsQuantity)
 

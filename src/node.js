@@ -47,7 +47,6 @@ class Node extends Libp2p {
     })
 
     this.handle("/terminate/1.0.0", async (protocolName, connection) => {
-      // console.log("peer terminated:", this.getId())
       this.stop()
     })
   }
@@ -80,6 +79,7 @@ class Node extends Libp2p {
       hashes: chunks.map(chunk => chunk.hash),
       ...info
     })
+    return chunks.length
   }
 
   async retrieveFile(hash) {
@@ -98,25 +98,24 @@ class Node extends Libp2p {
   }
 
   async getChunkFromPeer(peer, hash) {
-    console.log(this.peerInfo.id.isEqual(peer.id))
     return this.peerInfo.id.isEqual(peer.id)
       ? this.fileService.loadChunk(hash)
       : await this.communicationService.retrieveChunkFromPeer(peer, hash)
-  }
-
-  js(...js) {
-    return eval(js.join(" "))
   }
 
   getId() {
     return this.peerInfo.id.toB58String()
   }
 
+  js(...js) {
+    return eval(js.join(" "))
+  }
+
   async meta() {
     return await this.getFilesMetaData()
   }
 
-  async dpeers() {
+  async gpeers() {
     const peers = this.discoveryService
       .getPeers()
       .map(peer => peer.id.toB58String())
@@ -136,28 +135,16 @@ class Node extends Libp2p {
     return counter.filter(e => e).length
   }
 
-  async storeFileR(name, content) {
-    const expansion = 2
-    const data = content ? content : await this.fileService.loadFile(name)
-    const hash = this.fileService.calculateHash(data)
-    const peers = this.discoveryService.getPeers(expansion)
-    await this.communicationService.storeFileR(peers, { data, hash })
-    await this.dhtService.addMetaData(hash, { name })
+  async tpeer(id) {
+    const peer = this.discoveryService
+      .getPeers()
+      .filter(p => p.id.toB58String() === id)[0]
+
+    await this.communicationService.terminatePeer(peer)
   }
 
-  async retrieveFileR(hash) {
-    const providers = await this.discoveryService.findProviders(hash)
-
-    const chunks = await Promise.all(
-      providers.map(async provider => {
-        const chunk = await this.communicationService.retrieveChunkFromPeer(
-          provider,
-          hash
-        )
-        return chunk
-      })
-    )
-    return chunks.filter(chunk => !_.isUndefined(chunk))[0].toString()
+  async dhtg(key) {
+    return await this.dhtService.getJson(key)
   }
 }
 
@@ -169,7 +156,6 @@ const createNode = promisify((options, callback) => {
   if (options.peerInfo) {
     return nextTick(callback, null, new Node(options))
   }
-  // const peerId = options.id
   PeerInfo.create((err, peerInfo) => {
     if (err) return callback(err)
     peerInfo.multiaddrs.add("/ip4/0.0.0.0/tcp/0")

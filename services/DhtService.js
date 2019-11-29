@@ -51,7 +51,7 @@ module.exports = class DhtService {
     await this.putJson("0", metaData)
   }
 
-  async getFileInfo(hash, info) {
+  async getFileInfo(hash) {
     return await this.getJson(hash)
   }
 

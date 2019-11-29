@@ -55,14 +55,4 @@ module.exports = class CommunicationService {
     const protocol = "/terminate/1.0.0"
     await this.connect(peer, protocol)
   }
-
-  async storeFileR(peers, file) {
-    const protocol = "/storeFile/1.0.0"
-    for await (const peer of peers) {
-      const connection = await this.connect(peer, protocol)
-      if (connection) {
-        this.sendJson(file, connection)
-      }
-    }
-  }
 }
